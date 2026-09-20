@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "design-implementation",
+  "description": "Implement reviewed design exports and interaction specifications with explicit responsive and accessibility contracts.",
+  "instructions": [
+    "Record design document and revision, frame IDs, export scale, font files, authorized assets, content and design owner. Extract tokens and component variants before implementation.",
+    "Identify unspecified behavior, intermediate breakpoints, empty/loading/error states, focus order and accessible names. Resolve these in the task contract rather than claiming they are inferable from a screenshot.",
+    "Map every approved frame and interaction state to a scenario and viewport. Import original exported PNGs as independent references; provide expected landmark geometry/text from design measurements for each viewport.",
+    "Implement tokens, reusable components, responsive composition and interactions. Use real text and semantic controls; the visual baseline does not replace behavior or accessibility checks.",
+    "Compare every required frame/state against the approved image, text and geometry. Use regions for diagnostic detail and add full-page cases to expose missing content and overflow.",
+    "Keep design-export provenance distinct from browser-capture provenance. Explain rasterization differences and review calibrated tolerances; never regenerate a design baseline from the candidate to make it pass."
+  ],
+  "requiredCheckKinds": ["visual"],
+  "constraints": { "minimumViewports": 2, "requireAccessibility": true, "requireBehavior": true, "requireLandmarks": true },
+  "defaults": { "maxAttempts": 2 }
+}

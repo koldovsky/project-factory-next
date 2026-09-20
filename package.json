@@ -1,0 +1,24 @@
+{
+  "name": "@koldovsky/project-factory-next",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Evidence-first software delivery with customizable task profiles and measured factory improvement",
+  "type": "module",
+  "engines": { "node": ">=22.17.0" },
+  "bin": { "factory": "bin/factory.mjs" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:core": "node --test tests/core.test.mjs tests/learning.test.mjs tests/adapters.test.mjs",
+    "test:visual": "node --test tests/visual*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "demo": "node scripts/demo.mjs",
+    "demo:visual": "node scripts/visual-demo.mjs"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "ajv": "8.20.0",
+    "pixelmatch": "7.2.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  }
+}

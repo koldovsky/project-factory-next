@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "id", "description", "instructions", "requiredCheckKinds", "defaults"],
+  "properties": {
+    "schemaVersion": {"const": 1}, "id": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$"},
+    "description": {"type": "string", "minLength": 1},
+    "instructions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "requiredCheckKinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["command", "visual"]}},
+    "constraints": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "minimumViewports": {"type": "integer", "minimum": 1},
+        "requireAccessibility": {"type": "boolean"},
+        "requireBehavior": {"type": "boolean"},
+        "requireLandmarks": {"type": "boolean"}
+      }
+    },
+    "defaults": {"type": "object", "additionalProperties": false, "required": ["maxAttempts"], "properties": {"maxAttempts": {"type": "integer", "minimum": 1, "maximum": 10}}}
+  }
+}

@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {sealControl} from '../src/control.mjs';
+import {runFactory} from '../src/runner.mjs';
+import {reflectRuns} from '../src/reflection.mjs';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+const demo=fs.mkdtempSync(path.join(os.tmpdir(),'factory-demo-'));
+const control=path.join(demo,'control');
+fs.cpSync(path.join(root,'examples/software/control'),control,{recursive:true});
+fs.copyFileSync(path.join(root,'profiles/software-change.json'),path.join(control,'profile.json'));
+for(const variant of ['good','bad']) fs.cpSync(path.join(root,'examples/software',variant),path.join(demo,variant),{recursive:true});
+const {policyDigest}=sealControl(control);
+const store=path.join(demo,'runs');
+const good=await runFactory({control,candidate:path.join(demo,'good'),store,policyDigest,runId:'good'});
+const bad=await runFactory({control,candidate:path.join(demo,'bad'),store,policyDigest,runId:'bad'});
+assert.equal(good.state,'passed');assert.equal(bad.state,'failed');
+const reflection=reflectRuns(store);assert.equal(reflection.findings.length,1);
+console.log(JSON.stringify({demo,policyDigest,good:good.state,regression:bad.state,reflection},null,2));

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "field-notes",
+  "allowedResourceOrigins": [],
+  "provenance": { "source": "examples/visual/fixture.html", "revision": "authored-fixture-v1", "owner": "project-factory-maintainers" },
+  "environment": { "locale": "en-US", "timezoneId": "UTC", "colorScheme": "light", "deviceScaleFactor": 1, "fixedTime": "2026-01-01T12:00:00Z" },
+  "viewports": [ { "id": "desktop", "width": 1024, "height": 768 }, { "id": "mobile", "width": 390, "height": 844 } ],
+  "scenarios": [
+    {
+      "id": "landing", "path": "/", "readySelector": "#content", "steps": [],
+      "assertions": [ { "kind": "text", "selector": "#headline", "value": "Make room for a slower Sunday." }, { "kind": "visible", "selector": "#subscribe" } ],
+      "landmarks": [ { "id": "headline", "selector": "#headline" }, { "id": "form", "selector": "#signup" } ],
+      "masks": [], "screenshot": { "fullPage": true }, "allowHorizontalOverflow": false
+    },
+    {
+      "id": "subscribed", "path": "/", "readySelector": "#content",
+      "steps": [ { "action": "fill", "selector": "#email", "value": "reader@example.test" }, { "action": "click", "selector": "#subscribe" } ],
+      "assertions": [ { "kind": "text", "selector": "#status", "value": "You are on the list." }, { "kind": "value", "selector": "#email", "value": "reader@example.test" } ],
+      "landmarks": [ { "id": "headline", "selector": "#headline" }, { "id": "form", "selector": "#signup" }, { "id": "status", "selector": "#status" } ],
+      "masks": [], "screenshot": { "fullPage": true }, "allowHorizontalOverflow": false
+    }
+  ],
+  "thresholds": { "pixelThreshold": 0.1, "maxDiffPixelRatio": 0, "geometryPx": 0 },
+  "accessibility": { "enabled": true, "tags": ["wcag2a", "wcag2aa", "wcag21aa"], "maxViolations": 0 },
+  "fixtures": []
+}
