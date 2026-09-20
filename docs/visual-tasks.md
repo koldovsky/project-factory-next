@@ -116,6 +116,8 @@ Masks are explicit selectors with reasons. They are included in the contract dig
 
 ## Authorized CDN resources
 
+After scenario actions, the evaluator waits up to ten seconds for every image to finish loading with a nonzero natural width. This covers requests started by scrolling or other interactions after page load. Images that remain missing, broken or unloaded still fail; the wait does not replace the asset check or relax pixel comparison. Scenarios must trigger the intended lazy content and explicitly establish their final scroll state. Hovering a sticky header, for example, does not necessarily return the document to the top.
+
 `allowedResourceOrigins` is optional and defaults to an empty list. Without it, HTTP(S) requests start from the same origin as `baseURL`, except for explicitly fulfilled fixtures. To capture a site that uses authorized CDN images, fonts or stylesheets, add canonical HTTP(S) origins without a trailing slash, path, query or credentials:
 
 ```json

@@ -181,6 +181,12 @@ async function captureCase(browser, config, baseURL, item) {
       }
     }
     await page.evaluate(async () => { await document.fonts.ready; });
+    // Interactions can start image requests after the initial page load (for
+    // example, scrolling a lazy image into view). Wait for those pixels before
+    // diagnosing missing assets; a timeout still reaches the explicit failure.
+    await page.waitForFunction(() => Array.from(document.images).every(image =>
+      image.complete && image.naturalWidth > 0), undefined, { timeout: 10_000 })
+      .catch(error => { if (error.name !== 'TimeoutError') throw error; });
     const issues = await page.evaluate(() => ({
       overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       brokenImages: Array.from(document.images).filter(image => !image.complete || image.naturalWidth === 0).map(image => image.currentSrc || image.src),
