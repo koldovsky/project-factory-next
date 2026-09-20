@@ -195,12 +195,15 @@ async function captureCase(browser, config, baseURL, item) {
     if (!scenario.allowHorizontalOverflow && issues.overflow > 1) throw new Error(`Horizontal overflow: ${issues.overflow}px`);
     if (issues.brokenImages.length) throw new Error(`Broken/unloaded images: ${issues.brokenImages.join(', ')}`);
     if (issues.failedFonts.length) throw new Error(`Failed fonts: ${issues.failedFonts.join(', ')}`);
+    const png = await stableScreenshot(page, scenario);
+    // Audit only after the final screenshot has stabilized. Axe can inspect
+    // the live page but must observe the same settled transition state that
+    // produced the captured pixels.
     let accessibility = { enabled: false, violations: [] };
     if (config.accessibility.enabled) {
       const audit = await new AxeBuilder({ page }).withTags(config.accessibility.tags).analyze();
       accessibility = { enabled: true, violations: audit.violations.map(violation => ({ id: violation.id, impact: violation.impact, help: violation.help, targets: violation.nodes.map(node => node.target) })) };
     }
-    const png = await stableScreenshot(page, scenario);
     if (blockedNavigations.length) throw new Error(`Navigation outside baseURL origin was blocked: ${blockedNavigations.join(', ')}`);
     return { png, landmarks: await layout(page, scenario), accessibility, issues, assertions: scenario.assertions.length, steps: scenario.steps.length, observedURL: page.url() };
   } finally { await context.close(); }

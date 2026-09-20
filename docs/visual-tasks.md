@@ -145,7 +145,7 @@ Use learning to improve the builder: compare a proposed prompt/token/component s
 
 The implementation uses Playwright's fixed-date clock while leaving timers available to the application. [Playwright Clock](https://playwright.dev/docs/clock)
 
-Accessibility checks use `@axe-core/playwright`. Manual assessment and inclusive user testing remain necessary. [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing)
+Accessibility checks use `@axe-core/playwright` after screenshot stabilization. Playwright finishes finite CSS animations for the capture, so Axe measures their settled state rather than an arbitrary point in a text fade or color transition. A regression fixture animates initially unreadable text to readable contrast and verifies this ordering. Infinite animations resume after capture; deterministic task fixtures still need to control continuously changing content. Manual assessment and inclusive user testing remain necessary. [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing)
 
 The browser regression test captures an authored local fixture, checks desktop/mobile and before/after signup states, then deliberately changes its layout and verifies failure. It also exercises design import, missing/tampered references and overwrite rejection. This validates the implemented mechanisms; it is not a benchmark demonstrating that an agent can clone arbitrary sites.
 
