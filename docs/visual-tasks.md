@@ -116,6 +116,8 @@ Masks are explicit selectors with reasons. They are included in the contract dig
 
 ## Authorized CDN resources
 
+After scenario actions, the evaluator waits up to ten seconds for every image to finish loading with a nonzero natural width. This covers requests started by scrolling or other interactions after page load. Images that remain missing, broken or unloaded still fail; the wait does not replace the asset check or relax pixel comparison. Scenarios must trigger the intended lazy content and explicitly establish their final scroll state. Hovering a sticky header, for example, does not necessarily return the document to the top.
+
 `allowedResourceOrigins` is optional and defaults to an empty list. Without it, HTTP(S) requests start from the same origin as `baseURL`, except for explicitly fulfilled fixtures. To capture a site that uses authorized CDN images, fonts or stylesheets, add canonical HTTP(S) origins without a trailing slash, path, query or credentials:
 
 ```json
@@ -143,7 +145,7 @@ Use learning to improve the builder: compare a proposed prompt/token/component s
 
 The implementation uses Playwright's fixed-date clock while leaving timers available to the application. [Playwright Clock](https://playwright.dev/docs/clock)
 
-Accessibility checks use `@axe-core/playwright`. Manual assessment and inclusive user testing remain necessary. [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing)
+Accessibility checks use `@axe-core/playwright` after screenshot stabilization. Playwright finishes finite CSS animations for the capture, so Axe measures their settled state rather than an arbitrary point in a text fade or color transition. A regression fixture animates initially unreadable text to readable contrast and verifies this ordering. Infinite animations resume after capture; deterministic task fixtures still need to control continuously changing content. Manual assessment and inclusive user testing remain necessary. [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing)
 
 The browser regression test captures an authored local fixture, checks desktop/mobile and before/after signup states, then deliberately changes its layout and verifies failure. It also exercises design import, missing/tampered references and overwrite rejection. This validates the implemented mechanisms; it is not a benchmark demonstrating that an agent can clone arbitrary sites.
 

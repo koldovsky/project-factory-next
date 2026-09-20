@@ -181,6 +181,12 @@ async function captureCase(browser, config, baseURL, item) {
       }
     }
     await page.evaluate(async () => { await document.fonts.ready; });
+    // Interactions can start image requests after the initial page load (for
+    // example, scrolling a lazy image into view). Wait for those pixels before
+    // diagnosing missing assets; a timeout still reaches the explicit failure.
+    await page.waitForFunction(() => Array.from(document.images).every(image =>
+      image.complete && image.naturalWidth > 0), undefined, { timeout: 10_000 })
+      .catch(error => { if (error.name !== 'TimeoutError') throw error; });
     const issues = await page.evaluate(() => ({
       overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       brokenImages: Array.from(document.images).filter(image => !image.complete || image.naturalWidth === 0).map(image => image.currentSrc || image.src),
@@ -189,12 +195,15 @@ async function captureCase(browser, config, baseURL, item) {
     if (!scenario.allowHorizontalOverflow && issues.overflow > 1) throw new Error(`Horizontal overflow: ${issues.overflow}px`);
     if (issues.brokenImages.length) throw new Error(`Broken/unloaded images: ${issues.brokenImages.join(', ')}`);
     if (issues.failedFonts.length) throw new Error(`Failed fonts: ${issues.failedFonts.join(', ')}`);
+    const png = await stableScreenshot(page, scenario);
+    // Audit only after the final screenshot has stabilized. Axe can inspect
+    // the live page but must observe the same settled transition state that
+    // produced the captured pixels.
     let accessibility = { enabled: false, violations: [] };
     if (config.accessibility.enabled) {
       const audit = await new AxeBuilder({ page }).withTags(config.accessibility.tags).analyze();
       accessibility = { enabled: true, violations: audit.violations.map(violation => ({ id: violation.id, impact: violation.impact, help: violation.help, targets: violation.nodes.map(node => node.target) })) };
     }
-    const png = await stableScreenshot(page, scenario);
     if (blockedNavigations.length) throw new Error(`Navigation outside baseURL origin was blocked: ${blockedNavigations.join(', ')}`);
     return { png, landmarks: await layout(page, scenario), accessibility, issues, assertions: scenario.assertions.length, steps: scenario.steps.length, observedURL: page.url() };
   } finally { await context.close(); }
