@@ -8,6 +8,8 @@ This is a new implementation, not a copy of the earlier project-factory. The red
 
 ## Start here
 
+Read the [complete factory handbook](docs/factory-handbook.md) for a detailed explanation of the architecture, a runnable good/bad candidate walkthrough, quality contracts, evidence, operations and the real Next.js cloning trial. Its companion chapters cover [every command and runtime setting](docs/handbook/reference.md), [website cloning and design implementation](docs/handbook/visual-workflows.md), and [measured self-improvement](docs/handbook/measured-improvement.md), including the exact statistical decisions and external promotion responsibilities.
+
 Requires Node **22.17+** or **24**. The first install downloads Chromium for visual verification.
 
 ```sh
