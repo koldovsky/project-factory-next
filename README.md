@@ -74,4 +74,8 @@ Separate directories and hashes detect mistakes and content drift; they do not i
 
 [Every major decision and its tradeoff](docs/decisions.md) is documented. The design follows the [researched factory and evaluation practices](docs/research.md) rather than claiming one universally best orchestration strategy. The [migration guide](docs/migration.md) shows how to move from the previous factory without importing its permissive gates.
 
-Source is private and unlicensed for redistribution until the owner chooses a license. No third-party website content is bundled; the visual fixture is authored for this repository.
+No third-party website content is bundled; the visual fixture is authored for this repository.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE). You may use, change and share the factory for personal study, research, experiments and hobby projects, and noncommercial organizations such as schools, universities, charities, public research and government bodies may use it too. Commercial use, including use inside a company or on client work, needs a separate commercial license: contact the author through [dev-ai.dev](https://dev-ai.dev/#contact). The [license text](LICENSE) is what governs; this paragraph only summarizes it.
