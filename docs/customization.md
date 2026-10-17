@@ -103,6 +103,28 @@ Return `failed` for any failed case and a nonzero process exit. The controller a
 
 Review the actual evaluator dependency closure. Running an arbitrary candidate-owned `npm test` proves only what that candidate's tests assert. An independent test suite or trusted runner adapter should preserve external expected behavior. Process isolation is needed when executing adversarial candidate code; a schema alone cannot prevent a candidate imported into the evaluator process from tampering with that process.
 
+## Hide a check from the builder
+
+After a failed attempt, the next builder prompt normally carries every check's full result: case IDs, evaluator `details` and failure reasons. That helps repair, but it also shows the builder exactly what each check tests, so it can special-case those inputs instead of implementing the requirement. Mark a check as a holdout to keep its contents out of the prompt:
+
+```json
+{
+  "id":"holdout-a","kind":"command","dependsOn":[],"visibility":"holdout",
+  "expectedCases":["unicode","empty","very-long"],"timeoutMs":60000,
+  "argv":["node","{control}/holdout/evaluate.mjs"]
+}
+```
+
+`visibility` is `"feedback"` (the default) or `"holdout"`. A holdout runs on every attempt and must pass like any other check. The next prompt gets only its counts, for example `{"id":"holdout-a","status":"failed","passed":2,"total":3}`. Its case IDs, details, reasons, logs and artifacts stay in the attempt's `evidence.json` and output directory. A holdout visual check is validated as usual but left out of the builder's visual brief. `tests/core-review.test.mjs` runs a stand-in builder and checks that holdout case IDs, details and malformed-output reasons never reach its second prompt.
+
+- Write holdout cases from the intent and requirements, not from a candidate's code.
+- The check ID and requirement descriptions still reach the builder. Use an ID that doesn't describe the hidden cases, and keep expected values out of `task.context`.
+- Keep detailed feedback checks as well. “2 of 3 passed” is little to repair from; holdouts show whether the visible guidance generalized.
+- A feedback check's details reach the builder, so don't let one read and report a holdout's artifacts.
+- `visibility` is sealed policy like the rest of `task.json`, so changing it needs a new reviewed digest. Once a holdout's contents leak, replace it in a new control version.
+
+Locally, a holdout is hidden only from the prompt. [Trust and deployment](trust-and-deployment.md#holdout-checks) lists what a builder can still read and what real hiding needs.
+
 ## Visual production lines
 
 **Website clone:** source URL/revision → route and state inventory → authorized assets/fonts → independent reference capture → tokens/layout/components → interaction implementation → full visual matrix → review.

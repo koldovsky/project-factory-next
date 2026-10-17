@@ -31,8 +31,12 @@ test('contracts reject vacuity, unknown keys, lost methods and cyclic dependenci
   assert.doesNotThrow(()=>validateTask(originalTask,profile));
   for(const mutate of [task=>task.requirements=[],task=>task.checks=[],task=>task.extra=true,
     task=>task.requirements[0].checkIds=['nonexistent'],task=>task.checks[0].timeoutMs='60000',
-    task=>task.checks[0].dependsOn=['behavior'],task=>task.checks[0].expectedCases=[]]) {
+    task=>task.checks[0].dependsOn=['behavior'],task=>task.checks[0].expectedCases=[],
+    task=>task.checks[0].visibility='hidden',task=>task.checks[0].visiblity='holdout']) {
     const task=clone(originalTask);mutate(task);assert.throws(()=>validateTask(task,profile));
+  }
+  for(const visibility of ['feedback','holdout']) {
+    const task=clone(originalTask);task.checks[0].visibility=visibility;assert.doesNotThrow(()=>validateTask(task,profile));
   }
   const visualProfile={...profile,requiredCheckKinds:['visual']};
   assert.throws(()=>validateTask(originalTask,visualProfile),/visual/);
@@ -139,6 +143,18 @@ test('builder receives concrete visual scope and selector requirements without e
   const prompt=buildPrompt(task,profile,'',builderBrief);
   assert.match(prompt,/1024/);assert.match(prompt,/390/);assert.match(prompt,/#subscribe/);
   assert.match(prompt,/You are on the list/);assert.doesNotMatch(prompt,/process.exitCode/);
+});
+
+test('a holdout visual check is still validated but stays out of the builder brief',t=>{
+  const f=fixture(t),out=path.join(f.directory,'visual-control');
+  initializeControl({out,profile:'website-clone'});
+  const task=readJson(path.join(out,'task.json')),visual=task.checks.find(check=>check.kind==='visual');
+  visual.visibility='holdout';writeJson(path.join(out,'task.json'),task);
+  const loaded=loadControl(out);
+  assert.deepEqual(loaded.builderBrief,[]);
+  assert.doesNotMatch(buildPrompt(loaded.task,loaded.profile,'',loaded.builderBrief),/subscribed|You are on the list|#subscribe/);
+  visual.expectedCases.pop();writeJson(path.join(out,'task.json'),task);
+  assert.throws(()=>loadControl(out),/complete scenario\/viewport matrix/);
 });
 
 test('static candidate server serves local bytes and rejects hidden paths and traversal',async t=>{

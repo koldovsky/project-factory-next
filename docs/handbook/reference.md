@@ -38,6 +38,7 @@ Every check has:
 | `dependsOn` | Unique existing check IDs; no cycles; an empty array means independent |
 | `expectedCases` | Nonempty unique strings; actual results must match this complete set |
 | `timeoutMs` | Integer from 100 to 1,800,000 ms |
+| `visibility` | Optional `feedback` (default) or `holdout`; a holdout reaches the next builder prompt only as `{id, status, passed, total}` and is left out of the visual brief |
 | `argv` | Required only for `command`; forbidden for `visual` |
 | `config` | Required only for `visual`; relative visual JSON path inside control |
 | `referenceDir` | Required only for `visual`; relative reference directory inside control |
@@ -181,7 +182,7 @@ The Codex adapter expects the candidate to be a suitable Git checkout; it does n
 | Combined stdout/stderr | Default 1 MiB; excess causes `output-limit`, not acceptance |
 | Worker deadline | Sealed task value; adapter-library default is 10 minutes when called without one |
 | Preparation/check deadline | Each step's sealed timeout |
-| Repair feedback | Evaluated-attempt feedback is sliced to 32,768 characters and supplied as untrusted diagnostic text |
+| Repair feedback | Evaluated-attempt feedback is sliced to 32,768 characters and supplied as untrusted diagnostic text; holdout checks contribute only their ID, status and pass counts |
 | Dollar cap | Claude option is per invocation; Codex has no supported adapter cap |
 | Token/CPU/memory/disk limits | No CLI-enforced aggregate limits |
 | Custom environment/output cap | Library API options, not CLI flags or task fields |

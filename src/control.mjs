@@ -28,6 +28,7 @@ export function loadControl(directory) {
       throw new Error(`Visual check ${check.id}: profile requires at least one behavioral scenario with actions and assertions`);
     if (constraints.requireLandmarks && visual.scenarios.some(scenario=>scenario.landmarks.length === 0))
       throw new Error(`Visual check ${check.id}: profile requires landmarks in every scenario`);
+    if (check.visibility === 'holdout') continue; // validated like any visual check, but its scenarios stay out of the prompt
     builderBrief.push({checkId:check.id,reference:visual.provenance,viewports:visual.viewports,
       environment:visual.environment,thresholds:visual.thresholds,
       scenarios:visual.scenarios.map(scenario=>({id:scenario.id,path:scenario.path,readySelector:scenario.readySelector,
