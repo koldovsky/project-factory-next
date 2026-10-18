@@ -172,6 +172,7 @@ test('failure intake retains worker failures even without evaluator evidence',as
   const intake=reflectRuns(f.store);
   assert.equal(intake.status,'complete');assert.equal(intake.findings.length,1);
   assert.equal(intake.findings[0].checkId,'controller');
+  assert.equal(intake.findings[0].failures[0].overfitGap,null,'a run without an evaluation report has no overfit gap');
 });
 
 test('failure intake includes failed preparation when acceptance was never run',async t=>{

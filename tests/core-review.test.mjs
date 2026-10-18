@@ -6,6 +6,7 @@ import test from 'node:test';
 import { sealControl, verifyControl } from '../src/control.mjs';
 import { validateTask } from '../src/contracts.mjs';
 import { inspectRun, runFactory } from '../src/runner.mjs';
+import { reflectRuns } from '../src/reflection.mjs';
 import { readRun, createRun, transition } from '../src/store.mjs';
 import { readJson, safePath, treeManifest, writeJson, runtimeDigest, digestJson } from '../src/files.mjs';
 
@@ -327,4 +328,77 @@ test('feedback checks, explicit or default, still give the next builder every re
   const second=builder.prompts()[1];
   assert.equal(feedbackOf(second), JSON.stringify({preparation: evidence.preparation, checks: evidence.checks}));
   for(const marker of ['case-umlaut', 'zurich-strasse', 'basel-1291', 'geneve-42']) assert.ok(second.includes(marker), marker);
+});
+
+// A command check whose evaluator reports these case outcomes, exiting nonzero when any case fails.
+function reportingCheck(id, outcomes, options={}) {
+  const cases=Object.entries(outcomes).map(([caseId, status])=>({id: caseId, status}));
+  const status=cases.every(c=>c.status==='passed')?'passed':'failed';
+  return {id, kind: 'command', dependsOn: [], expectedCases: Object.keys(outcomes), timeoutMs: 5000, ...options,
+    argv: ['node', '-e', `console.log(JSON.stringify(${JSON.stringify({status, cases})}));process.exitCode=${status==='passed'?0:1}`]};
+}
+
+const reflectedGaps=store=>Object.fromEntries(reflectRuns(store).findings.map(finding=>
+  [finding.checkId, finding.failures.map(failure=>failure.overfitGap)]));
+
+test('feedback checks that pass while holdouts fail, are blocked or error record a positive overfit gap', async t => {
+  const value=fixture(t);
+  replaceTask(value, task => {
+    task.budget={maxAttempts: 2, agentTimeoutMs: 30000};
+    task.checks=[
+      reportingCheck('visible', {'shown-1': 'passed', 'shown-2': 'passed'}),
+      reportingCheck('hidden', {h1: 'passed', h2: 'failed', h3: 'failed'}, {visibility: 'holdout'}),
+      // Neither a blocked nor an errored holdout may drop out of the holdout total.
+      {id: 'hidden-blocked', kind: 'command', dependsOn: ['hidden'], visibility: 'holdout', expectedCases: ['h4', 'h5'], timeoutMs: 5000,
+        argv: ['node', '-e', 'throw Error("a blocked check must not run")']},
+      {id: 'hidden-crash', kind: 'command', dependsOn: [], visibility: 'holdout', expectedCases: ['h6'], timeoutMs: 5000,
+        argv: ['node', '-e', 'console.log("not a result")']}
+    ];
+    task.requirements=[{id: 'R1', description: 'Fixture passes', checkIds: task.checks.map(check=>check.id)}];
+  });
+  const builder=recordingBuilder(value);
+  assert.equal((await runFactory(builder.options)).state, 'failed');
+  // 2 of 2 feedback cases (100%) against 1 of 6 holdout cases (16.7%).
+  const gap={feedback: {checks: ['visible'], passed: 2, total: 2},
+    holdout: {checks: ['hidden', 'hidden-blocked', 'hidden-crash'], passed: 1, total: 6}, points: 83.3};
+  const runDir=path.join(value.store, value.runId);
+  const evidence=readJson(path.join(runDir, 'attempt-1/evidence.json'));
+  assert.deepEqual(evidence.overfitGap, gap);
+  assert.equal(inspectRun(runDir).report.attempt, 2);
+  assert.deepEqual(inspectRun(runDir).report.overfitGap, gap);
+  assert.deepEqual(reflectedGaps(value.store), {'hidden': [gap], 'hidden-blocked': [gap], 'hidden-crash': [gap]});
+  // The gap is not builder feedback: the next prompt still carries only preparation and the per-check entries.
+  assert.deepEqual(JSON.parse(feedbackOf(builder.prompts()[1])), {preparation: [], checks: [evidence.checks[0],
+    {id: 'hidden', status: 'failed', passed: 1, total: 3}, {id: 'hidden-blocked', status: 'blocked', passed: 0, total: 2},
+    {id: 'hidden-crash', status: 'failed', passed: 0, total: 1}]});
+});
+
+test('a task without holdout checks records no overfit gap rather than a zero gap', async t => {
+  const value=fixture(t);
+  replaceTask(value, task => {task.checks=[reportingCheck('acceptance', {R1: 'passed', R2: 'failed'})];});
+  assert.equal((await runFactory(value)).state, 'failed');
+  const gap={feedback: {checks: ['acceptance'], passed: 1, total: 2}, holdout: {checks: [], passed: 0, total: 0}, points: null};
+  assert.deepEqual(inspectRun(path.join(value.store, value.runId)).report.overfitGap, gap);
+  assert.deepEqual(reflectedGaps(value.store), {acceptance: [gap]});
+});
+
+test('attempts whose acceptance did not run or was invalidated record no overfit gap', async t => {
+  const value=fixture(t);
+  // This holdout reports success but edits the candidate, which invalidates every result of the attempt.
+  replaceTask(value, task => {
+    task.checks.push({id: 'hidden', kind: 'command', dependsOn: [], visibility: 'holdout', expectedCases: ['h1'], timeoutMs: 5000,
+      argv: ['node', '-e', `require("node:fs").appendFileSync(process.env.FACTORY_CANDIDATE_DIR+"/product.txt","!");
+        console.log(JSON.stringify({status:"passed",cases:[{id:"h1",status:"passed"}]}))`]});
+  });
+  assert.equal((await runFactory(value)).state, 'failed');
+  const invalidated=inspectRun(path.join(value.store, value.runId)).report;
+  assert.deepEqual(invalidated.checks.map(check=>[check.id, check.status]),
+    [['acceptance', 'passed'], ['hidden', 'passed'], ['candidate-integrity', 'failed']]);
+  assert.equal(invalidated.overfitGap, null);
+  replaceTask(value, task => {task.preparation=[{id: 'build', argv: ['node', '-e', 'process.exitCode=2'], timeoutMs: 5000}];});
+  assert.equal((await runFactory({...value, runId: 'unprepared-run'})).state, 'failed');
+  const unprepared=inspectRun(path.join(value.store, 'unprepared-run')).report;
+  assert.deepEqual(unprepared.checks, []);
+  assert.equal(unprepared.overfitGap, null);
+  assert.deepEqual(reflectedGaps(value.store), {'candidate-integrity': [null], 'preparation:build': [null]});
 });

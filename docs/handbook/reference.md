@@ -43,6 +43,8 @@ Every check has:
 | `config` | Required only for `visual`; relative visual JSON path inside control |
 | `referenceDir` | Required only for `visual`; relative reference directory inside control |
 
+Each evaluated attempt's `evidence.json` records `overfitGap`. Its `feedback` and `holdout` objects give each class's check IDs and passed/total case counts; a blocked or errored check counts as zero passed of its expected cases. `points` is the feedback pass rate minus the holdout pass rate in percentage points, rounded to one decimal, or `null` when either class has no cases. `overfitGap` itself is `null` when preparation failed or the candidate changed during evaluation. The gap changes no verdict and is not sent to the builder.
+
 `budget.maxAttempts` is an integer from 1 to 10. `budget.agentTimeoutMs` is an integer from 100 to 3,600,000 ms. There is no task field for total tokens, overall run duration, CPU, memory, output-byte override or total dollar spend. Do not add invented properties; implement needed measurement through a reviewed evaluator or external controller.
 
 Validation checks structure and relationships, not assertion quality. `validate` and `seal` do not execute commands, inspect their complete dependency closure or establish that missing reference images exist. Only an actual evaluation exercises those dependencies.
@@ -112,7 +114,7 @@ Invoke the CLI as `node bin/factory.mjs COMMAND`. Options are long, string-value
 | `recover` | `--store --run-id` | Removes only a demonstrably dead controller lock |
 | `capture` | `--config --base-url --out` | Captures browser references into a new directory |
 | `import-design` | `--config --images --out` | Imports a complete PNG mapping into a new reference directory |
-| `reflect` | `--store` | `--out`; emits failure-intake JSON |
+| `reflect` | `--store` | `--out`; emits failure-intake JSON; each finding's run entry carries that run's `overfitGap` |
 | `improve` | `--experiment` | `--out`; assesses supplied paired measurements |
 | `profiles` | None | Prints installed profile JSON |
 | `help` | None | Prints usage; also the default when no command is supplied |

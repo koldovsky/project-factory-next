@@ -16,18 +16,20 @@ export function reflectRuns(store) {
           const failure=run.history.findLast(event=>event.details?.reason);
           const key=`controller:${run.agent}:${run.state}`;
           const group=groups.get(key)??{id:key,checkId:'controller',failures:[],nextStep:'Investigate worker/controller failure before evaluating any product or factory improvement.'};
-          group.failures.push({runId:run.id,policyDigest:run.policyDigest,reason:failure?.details.reason??'Run ended without acceptance evidence'});
+          group.failures.push({runId:run.id,policyDigest:run.policyDigest,overfitGap:null,reason:failure?.details.reason??'Run ended without acceptance evidence'});
           groups.set(key,group);
         }
         continue;
       }
       const unsuccessfulPreparation=(run.report.preparation??[]).filter(step=>step.status!=='passed')
         .map(step=>({id:`preparation:${step.id}`,status:'failed',reason:step.error??step.reason??`Preparation ${step.status} (exit ${step.exitCode})`}));
+      // The verified report's own gap; evidence written before the gap was recorded has none.
+      const overfitGap=run.report.overfitGap??null;
       for(const check of [...run.report.checks.filter(c=>c.status!=='passed'),...unsuccessfulPreparation]) {
         const key=`${run.report.taskId}:${check.id}`;
         const group=groups.get(key)??{id:key,taskId:run.report.taskId,checkId:check.id,failures:[],nextStep:'Investigate the evidence, identify one causal failure class and register a controlled experiment.'};
         group.failures.push({runId:run.id,policyDigest:run.policyDigest,evidenceDigest:run.evidenceDigest,
-          candidateDigest:run.report.candidateDigest,reason:check.reason??check.cases?.filter(c=>c.status==='failed')});
+          candidateDigest:run.report.candidateDigest,overfitGap,reason:check.reason??check.cases?.filter(c=>c.status==='failed')});
         groups.set(key,group);
       }
     } catch(error) {ignored.push({runId:entry.name,reason:error.message});}
