@@ -123,6 +123,18 @@ After a failed attempt, the next builder prompt normally carries every check's f
 - A feedback check's details reach the builder, so don't let one read and report a holdout's artifacts.
 - `visibility` is sealed policy like the rest of `task.json`, so changing it needs a new reviewed digest. Once a holdout's contents leak, replace it in a new control version.
 
+Each evaluated attempt's `evidence.json` also records the overfit gap:
+
+```json
+"overfitGap":{
+  "feedback":{"checks":["acceptance"],"passed":4,"total":4},
+  "holdout":{"checks":["holdout-a"],"passed":1,"total":3},
+  "points":66.7
+}
+```
+
+`points` is the feedback pass rate minus the holdout pass rate in percentage points, rounded to one decimal. Rates count cases, and a blocked or errored check counts as zero passed of its expected cases. A builder that implements the requirement stays near zero; one that passes what it was shown and fails what it wasn't scores high. `factory reflect` shows the gap on each run entry of its findings, so you can spot that pattern across runs. `points` is `null` when the task has no holdout or no feedback checks, and the whole `overfitGap` is `null` when preparation failed or the candidate changed during evaluation, so a missing measurement never reads as 0. The gap changes no verdict and is not added to the builder prompt. With few holdout cases it is coarse: one case in three moves it 33 points. `tests/core-review.test.mjs` checks the exact gap of a run with failed, blocked and errored holdouts, and that runs without holdouts or without valid acceptance report none.
+
 Locally, a holdout is hidden only from the prompt. [Trust and deployment](trust-and-deployment.md#holdout-checks) lists what a builder can still read and what real hiding needs.
 
 ## Visual production lines

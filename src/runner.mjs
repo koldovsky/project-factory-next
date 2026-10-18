@@ -43,12 +43,27 @@ export function buildPrompt(task,profile,feedback='',builderBrief=[]) {
   ].filter(Boolean).join('\n\n');
 }
 
+// A blocked or errored check has no cases, so it counts as zero passed of all its expected cases.
+const caseCounts=(check,result)=>({passed:(result?.cases??[]).filter(c=>c.status==='passed').length,total:check.expectedCases.length});
+
 // Holdout checks reach the builder only as pass counts; their cases, details and reasons stay in the attempt evidence.
 function builderFeedback(task,preparation,results) {
   const holdouts=new Map(task.checks.filter(check=>check.visibility==='holdout').map(check=>[check.id,check]));
-  const checks=results.map(result=>holdouts.has(result.id)?{id:result.id,status:result.status,
-    passed:(result.cases??[]).filter(c=>c.status==='passed').length,total:holdouts.get(result.id).expectedCases.length}:result);
+  const checks=results.map(result=>holdouts.has(result.id)?{id:result.id,status:result.status,...caseCounts(holdouts.get(result.id),result)}:result);
   return JSON.stringify({preparation,checks}).slice(0,32768);
+}
+
+// Feedback-case pass rate minus holdout-case pass rate, in percentage points rounded to one decimal. A builder that passes
+// the checks it was shown but fails the held-out ones scores high. Without cases on both sides there is no gap, not a 0.
+function overfitGap(task,results) {
+  const tally=checks=>checks.reduce((sum,check)=>{
+    const {passed,total}=caseCounts(check,results.find(result=>result.id===check.id));
+    return {...sum,passed:sum.passed+passed,total:sum.total+total};
+  },{checks:checks.map(check=>check.id),passed:0,total:0});
+  const feedback=tally(task.checks.filter(check=>check.visibility!=='holdout'));
+  const holdout=tally(task.checks.filter(check=>check.visibility==='holdout'));
+  return {feedback,holdout,points:feedback.total && holdout.total?
+    Math.round(1000*feedback.passed/feedback.total-1000*holdout.passed/holdout.total)/10:null};
 }
 
 function evaluatorEnvironment({candidate,control,output,runId,checkId,baseURL}) {
@@ -204,7 +219,9 @@ export async function runFactory(options) {
         targetBinding:executionSpec.serveDir!==null?{kind:'managed-static',directory:executionSpec.serveDir}:
           executionSpec.baseURL!==null?{kind:'operator-supplied-url',url:executionSpec.baseURL}:{kind:'candidate-files'},
         node:process.version,platform:process.platform,completedAt:new Date().toISOString(),status,
-        releaseAuthorized:false,checks:results};
+        releaseAuthorized:false,
+        // A monitoring signal, not a verdict. Nothing was measured if acceptance did not run or its evidence was invalidated.
+        overfitGap:preparationFailed || before!==after?null:overfitGap(task,results),checks:results};
       writeJson(path.join(attemptDir,'evidence.json'),report);
       run.evidencePath=`attempt-${run.attempt}/evidence.json`;
       run.evidenceDigest=sha256(fs.readFileSync(path.join(attemptDir,'evidence.json')));
