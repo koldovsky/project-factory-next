@@ -266,3 +266,65 @@ test('preparation contracts reject duplicate IDs, empty executables and unbounde
     assert.throws(()=>validateTask({...original, preparation},profile));
   }
 });
+
+// The Codex adapter's first argument is `exec`, so Node runs this candidate file as a stand-in builder.
+// It records every prompt it receives outside the candidate, control and store.
+function recordingBuilder(value) {
+  const log=path.join(value.root, 'prompts.jsonl');
+  fs.writeFileSync(path.join(value.candidate, 'exec'), `let prompt='';process.stdin.setEncoding('utf8');
+process.stdin.on('data',chunk=>prompt+=chunk).on('end',()=>import('node:fs').then(fs=>fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(prompt)+'\\n')));`);
+  return {options: {...value, agent: 'codex', executable: process.execPath},
+    prompts: ()=>fs.readFileSync(log, 'utf8').trim().split('\n').map(line=>JSON.parse(line))};
+}
+
+const feedbackOf=prompt=>prompt.slice(prompt.indexOf('\n', prompt.indexOf('Previous attempt evidence'))+1);
+
+// Case IDs, details and malformed output a builder could special-case if they reached its prompt.
+const hiddenMarkers=['case-umlaut', 'case-empty', 'case-null', 'case-long', 'zurich-strasse', 'basel-1291', 'geneve-42'];
+
+function secretChecks(value, visibility) {
+  replaceTask(value, task => {
+    task.budget={maxAttempts: 2, agentTimeoutMs: 30000};
+    task.checks=[
+      {id: 'visible', kind: 'command', dependsOn: [], expectedCases: ['visible-case'], timeoutMs: 5000,
+        argv: ['node', '-e', 'console.log(JSON.stringify({status:"failed",cases:[{id:"visible-case",status:"failed",details:"expected visible-answer"}]}));process.exitCode=1']},
+      {id: 'edge-cases', kind: 'command', dependsOn: [], visibility, expectedCases: ['case-umlaut', 'case-empty', 'case-null'], timeoutMs: 5000,
+        argv: ['node', '-e', `console.error("stderr zurich-strasse");console.log(JSON.stringify({status:"failed",cases:[
+          {id:"case-umlaut",status:"failed",details:"expected zurich-strasse"},{id:"case-empty",status:"passed"},
+          {id:"case-null",status:"failed",details:{expected:"basel-1291"}}]}));process.exitCode=1`]},
+      // The JSON.parse error for short non-JSON output quotes it in full, so it reaches the check's reason.
+      {id: 'crash', kind: 'command', dependsOn: [], visibility, expectedCases: ['case-long'], timeoutMs: 5000,
+        argv: ['node', '-e', 'console.log("geneve-42");process.exitCode=1']}
+    ];
+    task.requirements=[{id: 'R1', description: 'Fixture passes', checkIds: ['visible', 'edge-cases', 'crash']}];
+  });
+}
+
+test('holdout checks reach the next builder prompt only as pass counts', async t => {
+  const value=fixture(t);
+  secretChecks(value, 'holdout');
+  const builder=recordingBuilder(value);
+  assert.equal((await runFactory(builder.options)).state, 'failed');
+  const [first, second]=builder.prompts();
+  assert.doesNotMatch(first, /Previous attempt evidence/);
+  for(const marker of hiddenMarkers) assert.equal(second.includes(marker), false, `${marker} reached the builder prompt`);
+  const attempt=path.join(value.store, value.runId, 'attempt-1');
+  const evidence=readJson(path.join(attempt, 'evidence.json'));
+  assert.deepEqual(JSON.parse(feedbackOf(second)).checks, [evidence.checks[0],
+    {id: 'edge-cases', status: 'failed', passed: 1, total: 3}, {id: 'crash', status: 'failed', passed: 0, total: 1}]);
+  // Complete holdout results stay in the attempt's evidence and logs.
+  assert.equal(evidence.checks[1].cases[0].details, 'expected zurich-strasse');
+  assert.match(evidence.checks[2].reason, /geneve-42/);
+  assert.match(fs.readFileSync(path.join(attempt, 'edge-cases/stderr.log'), 'utf8'), /zurich-strasse/);
+});
+
+test('feedback checks, explicit or default, still give the next builder every result detail', async t => {
+  const value=fixture(t);
+  secretChecks(value, 'feedback');
+  const builder=recordingBuilder(value);
+  assert.equal((await runFactory(builder.options)).state, 'failed');
+  const evidence=readJson(path.join(value.store, value.runId, 'attempt-1/evidence.json'));
+  const second=builder.prompts()[1];
+  assert.equal(feedbackOf(second), JSON.stringify({preparation: evidence.preparation, checks: evidence.checks}));
+  for(const marker of ['case-umlaut', 'zurich-strasse', 'basel-1291', 'geneve-42']) assert.ok(second.includes(marker), marker);
+});

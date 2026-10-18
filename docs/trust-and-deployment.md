@@ -24,6 +24,16 @@ There is no `--protected` flag that pretends to create those identities. Deploy 
 9. **Release and observe.** Deploy the accepted immutable artifact to a limited cohort, monitor task-specific correctness and service objectives, then expand. Keep an immediately usable previous artifact/configuration. Treat rollback as an external idempotent action; the coding agent cannot grant itself release permission.
 10. **Promote factory changes separately.** Authenticate preregistration, split custody, experiment evidence and the approval identity. Preserve absolute quality floors across generations. The local assessor's proposal is input to this decision, not the decision itself.
 
+## Holdout checks
+
+`visibility: "holdout"` hides a check from the builder's prompt, not from the builder. In local mode the builder runs as the same OS user as the controller, and nothing in the factory stops it from:
+
+- reading the control bundle, including holdout evaluator source, fixtures and expected values;
+- reading the run store, including earlier attempts' `evidence.json` and check logs, and any `factory reflect` output, which quotes failed holdout cases;
+- writing candidate code that records hidden inputs when an evaluator runs it, saves them outside the candidate directory, and reads them on its next attempt.
+
+Real hiding needs holdout evaluators, fixtures and their evidence in storage the builder process cannot read, evaluated in a separate environment that reports back only the counts (steps 2 and 4 above).
+
 ## Source CI and repository settings
 
 The active workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) uses read-only repository permissions, SHA-pinned Actions and no persisted checkout credentials. It runs schemas, syntax/link checks, every test, and both real demos on Windows/Linux with Node 22/24. An aggregate `required` job passes only when the full matrix succeeds.

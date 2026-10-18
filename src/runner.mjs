@@ -43,6 +43,14 @@ export function buildPrompt(task,profile,feedback='',builderBrief=[]) {
   ].filter(Boolean).join('\n\n');
 }
 
+// Holdout checks reach the builder only as pass counts; their cases, details and reasons stay in the attempt evidence.
+function builderFeedback(task,preparation,results) {
+  const holdouts=new Map(task.checks.filter(check=>check.visibility==='holdout').map(check=>[check.id,check]));
+  const checks=results.map(result=>holdouts.has(result.id)?{id:result.id,status:result.status,
+    passed:(result.cases??[]).filter(c=>c.status==='passed').length,total:holdouts.get(result.id).expectedCases.length}:result);
+  return JSON.stringify({preparation,checks}).slice(0,32768);
+}
+
 function evaluatorEnvironment({candidate,control,output,runId,checkId,baseURL}) {
   const allowed=new Set(['PATH','PATHEXT','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','TMPDIR','HOME','USERPROFILE','LOCALAPPDATA','APPDATA','LANG','LC_ALL','PLAYWRIGHT_BROWSERS_PATH']);
   return {...Object.fromEntries(Object.entries(process.env).filter(([k])=>allowed.has(k.toUpperCase()))),
@@ -202,7 +210,7 @@ export async function runFactory(options) {
       run.evidenceDigest=sha256(fs.readFileSync(path.join(attemptDir,'evidence.json')));
       run.attemptManifest=treeManifest(attemptDir);
       if(status==='passed') {transition(lease.dir,run,'passed',{attempt:run.attempt}); return {...run,report};}
-      feedback=JSON.stringify({preparation,checks:results}).slice(0,32768);
+      feedback=builderFeedback(task,preparation,results);
       transition(lease.dir,run,'attempt-failed',{attempt:run.attempt,
         ...(preparationFailed?{reason:'Preparation failed; acceptance was not executed',failedPreparation:preparation.filter(s=>s.status!=='passed').map(s=>s.id)}:{}),
         failedChecks:results.filter(r=>r.status!=='passed').map(r=>r.id)});
